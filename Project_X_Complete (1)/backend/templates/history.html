@@ -1,0 +1,78 @@
+<!-- templates/history.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Scan History - Project X</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #121212; color: white; padding: 2rem; }
+        .container { max-width: 800px; margin: auto; background: #1e1e1e; padding: 2rem; border-radius: 8px; }
+        table { width: 100%; margin-top: 1rem; border-collapse: collapse; }
+        th, td { border: 1px solid #444; padding: 0.5rem; }
+        a { color: #4eaaff; }
+        button { margin-top: 1rem; padding: 0.5rem 1rem; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>View Scan History</h2>
+    <div id="user-info"></div>
+
+    <div id="history-results"></div>
+
+    <div style="margin-top: 1rem;">
+        <a href="/" style="color: #00bfff;">Back to Dashboard</a>
+    </div>
+</div>
+
+<script>
+    async function fetchHistory(username) {
+    const response = await fetch(`/scan_history?target_user=${username}`);
+
+        const history = await response.json();
+
+        const resultsDiv = document.getElementById('history-results');
+        if (response.ok) {
+            if (history.length === 0) {
+                resultsDiv.innerHTML = "<p>No scans found for this user.</p>";
+                return;
+            }
+
+            let tableHTML = "<table><tr><th>Scan ID</th><th>Filename</th><th>Date</th><th>PCI DSS</th><th>Report</th></tr>";
+            history.forEach(scan => {
+                tableHTML += `<tr>
+                    <td>${scan.scan_id}</td>
+                    <td>${scan.filename}</td>
+                    <td>${scan.upload_datetime}</td>
+                    <td>${scan.pci_dss ? 'Yes' : 'No'}</td>
+                    <td><a href="/report/${scan.scan_id}" target="_blank">Download</a></td>
+                </tr>`;
+            });
+            tableHTML += "</table>";
+            resultsDiv.innerHTML = tableHTML;
+        } else {
+            resultsDiv.innerHTML = "<p>Error: " + (history.detail || "Unknown error") + "</p>";
+        }
+    }
+
+    function logout() {
+        localStorage.removeItem("username");
+        location.href = "/";
+    }
+
+    window.onload = () => {
+        const username = localStorage.getItem("username");
+        const userInfoDiv = document.getElementById("user-info");
+
+        if (username) {
+            userInfoDiv.innerHTML = `<p>Logged in as: <strong>${username}</strong> <button onclick="logout()">Logout</button></p>`;
+            fetchHistory(username);
+        } else {
+            userInfoDiv.innerHTML = `<p>No user logged in. <a href="/login" style="color: #00bfff;">Login here</a></p>`;
+        }
+    };
+</script>
+
+</body>
+</html>

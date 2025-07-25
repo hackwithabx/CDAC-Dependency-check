@@ -1,0 +1,121 @@
+<!-- templates/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Offline Dependency Scanner</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #121212; color: white; padding: 2rem; }
+    .container { max-width: 600px; margin: auto; background: #1e1e1e; padding: 2rem; border-radius: 8px; }
+    label, input, button { display: block; margin-top: 1rem; }
+    input[type="file"], input[type="checkbox"] { margin-top: 0.5rem; }
+    button { padding: 0.5rem 1rem; cursor: pointer; background: #007bff; border: none; color: white; border-radius: 4px; }
+    .delete-btn { background: #dc3545; margin-top: 1rem; }
+    a { color: #00bfff; text-decoration: underline; margin-right: 1rem; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div id="user-info"></div>
+
+    <h2>Offline Dependency Scanner</h2>
+
+    <form id="scan-form">
+      <label>Enter Username:</label>
+      <input type="text" name="username" required>
+
+      <label>Upload ZIP file of source code:</label>
+      <input type="file" name="file" required>
+
+      <label>
+        <input type="checkbox" name="pci_dss"> Include PCI DSS Scan
+      </label>
+
+      <button type="submit">Start Scan</button>
+    </form>
+
+    <div id="result" style="margin-top: 1.5rem;"></div>
+  </div>
+
+  <div style="margin-top: 1.5rem;">
+    <a href="/history">View Scan History</a>
+  </div>
+
+  <script>
+    let currentScanId = null;
+
+    document.getElementById('scan-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const form = e.target;
+      const data = new FormData(form);
+
+      const username = form.querySelector('input[name="username"]').value.trim();
+      localStorage.setItem("username", username);
+
+      document.getElementById('result').textContent = 'Scanning... Please wait.';
+
+      try {
+        const response = await fetch('/scan', {
+          method: 'POST',
+          body: data
+        });
+
+        const result = await response.json();
+        if (response.ok) {
+          currentScanId = result.scan_id;
+          document.getElementById('result').innerHTML = `
+            <p>Scan ID: <strong>${result.scan_id}</strong></p>
+            <a href="/report/${result.scan_id}" target="_blank">Download PDF Report</a><br>
+            <button class="delete-btn" onclick="deleteSourceCode()">Delete Uploaded Source Code</button>
+          `;
+        } else {
+          document.getElementById('result').textContent = 'Scan failed: ' + result.detail;
+        }
+      } catch (error) {
+        document.getElementById('result').textContent = 'Error: ' + error.message;
+      }
+    });
+
+    async function deleteSourceCode() {
+      if (!currentScanId) return;
+      if (!confirm("Are you sure you want to delete the uploaded source code for this scan? Reports will NOT be deleted.")) return;
+
+      const response = await fetch(`/delete_source/${currentScanId}`, { method: 'DELETE' });
+      const result = await response.json();
+
+      if (response.ok) {
+        alert(result.detail);
+      } else {
+        alert("Delete failed: " + result.detail);
+      }
+    }
+
+    function checkUserSession() {
+      const username = localStorage.getItem("username");
+      const role = localStorage.getItem("role");
+      const userInfoDiv = document.getElementById('user-info');
+
+      if (username) {
+        userInfoDiv.innerHTML = `
+          <p>Welcome, <strong>${username}</strong> (${role || "user"}) 
+          <button onclick="logout()">Logout</button></p>
+        `;
+        document.querySelector('input[name="username"]').value = username;
+      } else {
+        userInfoDiv.innerHTML = `
+          <a href="/login">Login</a> | 
+          <a href="/register">Register</a>
+        `;
+      }
+    }
+
+    function logout() {
+      localStorage.removeItem("username");
+      localStorage.removeItem("role");
+      location.reload();
+    }
+
+    window.onload = checkUserSession;
+  </script>
+</body>
+</html>
